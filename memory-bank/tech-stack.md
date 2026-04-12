@@ -52,9 +52,9 @@
 
 ### AI 接入
 
-- Spring AI + OpenAI Compatible API
-- 1 个聊天模型
-- 1 个 embedding 模型
+- Spring AI + DeepSeek(OpenAI Compatible API)
+- 聊天模型：DeepSeek-V3
+- embedding 模型：deepseek-embedding-v2
 
 ## 3. 为什么是这套
 
@@ -96,7 +96,9 @@
 
 - 使用 Spring AI BOM 锁版本
 - 不要一开始就同时引入太多 Provider
-- 第一阶段只接入一个兼容 OpenAI 协议的模型服务
+- 第一阶段只接入 DeepSeek 作为默认模型服务
+- 对话主模型默认使用 `DeepSeek-V3`
+- 向量模型默认使用 `deepseek-embedding-v2`
 
 ### 3.2 数据访问层
 
@@ -276,7 +278,7 @@
 
 推荐建议：
 
-- 1 台低配云服务器即可起步
+- 1 台低配阿里云服务器即可起步
 - 前端、后端、PostgreSQL、Redis、Nginx 统一通过 Docker Compose 管理
 
 ## 4. AI 技术栈建议
@@ -286,7 +288,7 @@
 推荐策略：
 
 - 用 Spring AI 做统一抽象
-- 接入 `OpenAI Compatible API`
+- 接入 `DeepSeek` 的 OpenAI Compatible API
 - 底层模型服务可替换
 
 这样做的好处：
@@ -299,8 +301,28 @@
 
 建议至少分成两类模型：
 
-- 聊天 / 推理模型：用于 JD 解析、简历诊断、任务生成、模拟面试、复盘报告
-- Embedding 模型：用于题库、JD、简历、面试记录的向量化检索
+- 聊天 / 推理模型：`DeepSeek-V3`，用于 JD 解析、简历诊断、任务生成、模拟面试、复盘报告
+- Embedding 模型：`deepseek-embedding-v2`，用于题库、JD、简历、面试记录的向量化检索
+
+### 4.2.1 文件解析补充建议
+
+简历 PDF / DOCX 读取不属于大模型能力本身，而属于传统文档解析能力。
+
+推荐做法：
+
+- PDF 文本提取使用 Java 文档解析库
+- DOCX 文本提取使用 Java Office 文档解析库
+- 提取出的纯文本再交给大模型做结构化解析、匹配分析与后续工作流
+
+建议工具：
+
+- PDF：Apache PDFBox
+- DOCX：Apache POI
+
+结论：
+
+- “读取 PDF / DOCX” 不是大模型技术栈
+- “解析后的文本交给模型理解和结构化” 才属于大模型应用链路
 
 ### 4.3 第一阶段不建议做的 AI 选型
 
