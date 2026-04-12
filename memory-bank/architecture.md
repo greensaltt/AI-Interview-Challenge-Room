@@ -14,12 +14,12 @@
 
 ## 2. 当前架构状态
 
-当前状态：`未开始实现 / 待初始化`
+当前状态：`第 1 步已完成，工程骨架已初始化`
 
 说明：
 
 - 仓库中已完成产品设计、技术选型与实施计划文档
-- `backend/` 与 `frontend/` 目录已创建，但尚未完成工程初始化
+- `backend/` 与 `frontend/` 已完成最小可运行工程初始化
 - 本文档将在工程推进过程中持续更新
 
 当前已确认的关键技术决策：
@@ -74,6 +74,83 @@
 - 复盘报告页
 - 后台管理页
 
+## 4.1 当前已落地骨架
+
+当前仓库已经落地的骨架遵循“先可启动，再扩展”的原则：
+
+- 后端已经具备最小 Spring Boot 启动能力
+- 后端已经暴露基础健康检查接口
+- 前端已经具备最小 Vue 3 + Vite 启动能力
+- 前端已经建立基础路由和页面占位
+- 后端业务模块目录与前端页面目录已预留，但尚未进入具体业务实现
+
+## 4.2 当前关键文件作用说明
+
+### 根目录
+
+- `README.md`：记录当前本地启动方式、环境要求和第 1 步实施范围
+- `.gitignore`：忽略后端构建产物、前端依赖与常见 IDE 文件
+- `AGENTS.md`：约束后续 AI 开发者的协作方式、文档基线与实现规则
+
+### backend
+
+- `backend/pom.xml`：后端 Maven 工程定义，当前提供 Spring Boot 最小运行依赖
+- `backend/src/main/java/com/offerdungeon/AiInterviewBattleRoomApplication.java`：后端应用启动入口
+- `backend/src/main/java/com/offerdungeon/common/controller/HealthController.java`：基础健康检查接口，供第 1 步验证启动使用
+- `backend/src/main/resources/application.yml`：当前后端最小配置，定义应用名、端口和 Actuator 基础暴露项
+- `backend/src/test/java/com/offerdungeon/AiInterviewBattleRoomApplicationTests.java`：最小上下文加载测试骨架
+
+### backend 预留目录
+
+- `backend/src/main/java/com/offerdungeon/common/`：后续放公共配置、异常、统一返回模型等横切能力
+- `backend/src/main/java/com/offerdungeon/auth/`：后续放注册、登录、JWT、权限相关实现
+- `backend/src/main/java/com/offerdungeon/user/`：后续放用户中心实现
+- `backend/src/main/java/com/offerdungeon/resume/`：后续放简历上传、解析、版本管理实现
+- `backend/src/main/java/com/offerdungeon/job/`：后续放岗位与 JD 管理实现
+- `backend/src/main/java/com/offerdungeon/questionbank/`：后续放题库管理实现
+- `backend/src/main/java/com/offerdungeon/plan/`：后续放学习计划实现
+- `backend/src/main/java/com/offerdungeon/task/`：后续放每日任务实现
+- `backend/src/main/java/com/offerdungeon/interview/`：后续放模拟面试实现
+- `backend/src/main/java/com/offerdungeon/report/`：后续放复盘报告实现
+- `backend/src/main/java/com/offerdungeon/agent/`：后续放模型调用封装、Prompt、工作流实现
+- `backend/src/main/java/com/offerdungeon/knowledge/`：后续放知识切片、向量检索实现
+- `backend/src/main/java/com/offerdungeon/admin/`：后续放后台管理实现
+- `backend/src/main/java/com/offerdungeon/log/`：后续放操作日志与审计实现
+- `backend/src/main/resources/db/migration/`：后续放 Flyway 数据库迁移脚本
+
+### frontend
+
+- `frontend/package.json`：前端依赖与启动脚本定义
+- `frontend/vite.config.ts`：Vite 开发服务配置
+- `frontend/index.html`：前端 HTML 入口
+- `frontend/src/main.ts`：前端应用入口，负责挂载 Vue 应用、路由和全局样式
+- `frontend/src/App.vue`：顶层应用组件，当前仅承载路由出口
+- `frontend/src/router/index.ts`：前端基础路由定义，当前仅包含首页、登录、注册、工作台占位路由
+- `frontend/src/styles/index.css`：当前全局样式文件，用于提供最小视觉骨架
+
+### frontend 当前页面
+
+- `frontend/src/pages/HomePage.vue`：默认首页，用于验证前端骨架启动成功
+- `frontend/src/pages/auth/LoginPage.vue`：登录页占位组件
+- `frontend/src/pages/auth/RegisterPage.vue`：注册页占位组件
+- `frontend/src/pages/dashboard/DashboardPage.vue`：工作台页占位组件
+
+### frontend 预留目录
+
+- `frontend/src/layouts/`：后续放用户端与后台端布局组件
+- `frontend/src/api/`：后续放接口请求封装
+- `frontend/src/components/`：后续放通用组件
+- `frontend/src/stores/`：后续放状态管理
+- `frontend/src/types/`：后续放 TypeScript 类型定义
+- `frontend/src/utils/`：后续放工具函数
+- `frontend/src/pages/resume/`：后续放简历管理页面
+- `frontend/src/pages/job/`：后续放岗位与 JD 页面
+- `frontend/src/pages/plan/`：后续放学习计划页面
+- `frontend/src/pages/task/`：后续放每日任务页面
+- `frontend/src/pages/interview/`：后续放模拟面试页面
+- `frontend/src/pages/report/`：后续放复盘报告页面
+- `frontend/src/pages/admin/`：后续放后台管理页面
+
 ## 5. 关键业务链路
 
 当前目标主链路：
@@ -100,13 +177,13 @@
 
 以下内容需要在开发推进过程中逐步补齐：
 
-- 后端实际包结构
-- 前端实际页面结构
 - 数据库表关系图
 - 接口分层说明
 - Agent 工作流调用图
 - 检索增强数据流
 - 部署架构图
+- 异步任务状态流转设计
+- 文件存储抽象与路径规范细化说明
 
 ## 8. 更新要求
 
