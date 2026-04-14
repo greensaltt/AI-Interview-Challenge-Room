@@ -5,6 +5,11 @@ backend/target/
 # Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/.env.development.local
+frontend/.env.production.local
+
+# Local Infrastructure
+deploy/local/.env
 
 # IDE
 .idea/

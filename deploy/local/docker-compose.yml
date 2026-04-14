@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: ai-interview-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${AI_INTERVIEW_DB_NAME}
+      POSTGRES_USER: ${AI_INTERVIEW_DB_USER}
+      POSTGRES_PASSWORD: ${AI_INTERVIEW_DB_PASSWORD}
+    ports:
+      - "${AI_INTERVIEW_DB_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_INTERVIEW_DB_USER} -d ${AI_INTERVIEW_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7.2
+    container_name: ai-interview-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${AI_INTERVIEW_REDIS_PORT}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - redis-data:/data
+
+volumes:
+  postgres-data:
+  redis-data:

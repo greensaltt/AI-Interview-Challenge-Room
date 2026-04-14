@@ -1,9 +1,17 @@
 spring:
   application:
     name: ai-interview-battle-room-backend
+  profiles:
+    default: local
 
 server:
-  port: 8080
+  port: ${AI_INTERVIEW_SERVER_PORT:8080}
+
+app:
+  async-task:
+    status-base-path: ${AI_INTERVIEW_TASK_STATUS_BASE_PATH:/api/tasks}
+    poll-interval: ${AI_INTERVIEW_TASK_POLL_INTERVAL:3s}
+    timeout: ${AI_INTERVIEW_TASK_TIMEOUT:10m}
 
 management:
   endpoints:

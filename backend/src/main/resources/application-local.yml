@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${AI_INTERVIEW_DB_HOST:localhost}:${AI_INTERVIEW_DB_PORT:5432}/${AI_INTERVIEW_DB_NAME:ai_interview_battle_room}
+    username: ${AI_INTERVIEW_DB_USER:postgres}
+    password: ${AI_INTERVIEW_DB_PASSWORD:postgres}
+    hikari:
+      pool-name: aiInterviewBattleRoomHikariPool
+      initialization-fail-timeout: 60000
+      connection-timeout: 3000
+  data:
+    redis:
+      host: ${AI_INTERVIEW_REDIS_HOST:localhost}
+      port: ${AI_INTERVIEW_REDIS_PORT:6379}
+      password: ${AI_INTERVIEW_REDIS_PASSWORD:}
+      database: ${AI_INTERVIEW_REDIS_DATABASE:0}
+      timeout: 3s
+
+management:
+  endpoint:
+    health:
+      show-details: always
