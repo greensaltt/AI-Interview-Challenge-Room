@@ -14,7 +14,7 @@
 
 ## 2. 当前架构状态
 
-当前状态：`第 5 步已完成并通过验证，认证与权限数据模型已落地，准备进入第 6 步`
+当前状态：`第 6 步代码已完成，认证基础能力已落地，等待人工验收；第 7 步尚未开始`
 
 说明：
 
@@ -23,15 +23,18 @@
 - 本地 PostgreSQL、pgvector、Redis 已具备统一启动方式
 - 后端已具备基础依赖探针能力与异步任务状态查询契约占位
 - 后端已接入 Flyway，数据库基线迁移脚本已落地
-- 最小系统表 `sys_user`、`sys_role`、`sys_user_role` 已通过首个迁移版本建立
+- 最小系统表 `sys_user`、`sys_role`、`sys_user_role` 已通过迁移版本建立并增强
 - 默认管理员账号、管理员角色与角色关联关系已通过迁移脚本初始化
 - 后端已建立统一 API 返回结构、全局异常处理与参数校验错误返回
 - 后端已建立请求级追踪过滤器，支持 `X-Request-Id` 透传/生成与日志关联
-- 第 4 步自动化契约测试已补充，覆盖成功响应、参数错误响应与系统异常兜底
 - 第 5 步已补充认证与权限数据模型增强迁移，补齐用户状态、角色状态、角色类型、角色绑定状态和审计字段
 - `ROLE_MENTOR` 已作为预留角色落库，但默认保持禁用状态，避免提前进入导师业务实现
-- 迁移集成测试已扩展为同时验证 V1/V2 迁移、默认角色种子、多角色绑定与状态约束
-- 第 5 步已完成本地验证，确认迁移集成测试在 PowerShell 中可通过为 `-D` 参数加引号或使用 `--%` 停止解析两种方式执行
+- 第 6 步已完成认证基础能力落地，包含注册、登录、JWT 鉴权、当前用户查询与退出登录接口
+- 登录支持“用户名或邮箱”两种账号输入方式
+- 密码使用 `BCrypt` 加密存储，并兼容数据库基线中的 bcrypt 密码哈希
+- 登录成功后会回写 `last_login_at` 与 `last_login_ip`
+- 当前鉴权仅收口到最小认证闭环：`/api/auth/me` 与 `/api/auth/logout` 需要 JWT，其余业务接口尚未进入第 7 步权限治理
+- 第 6 步已补充基于 H2 的集成测试，覆盖注册、用户名登录、邮箱登录、受保护接口访问、错误密码与退出登录场景
 - 本文档将在工程推进过程中持续更新
 
 当前已确认的关键技术决策：
@@ -50,8 +53,11 @@
 - 用户状态固定为 `ACTIVE / DISABLED / LOCKED / DELETED`
 - 角色状态固定为 `ACTIVE / DISABLED`，角色类型固定为 `SYSTEM / EXTENSION / RESERVED`
 - 用户角色关系状态固定为 `ACTIVE / REVOKED / EXPIRED`
+- 当前接入认证方案为 Spring Security + JWT 无状态鉴权
+- JWT 当前承载用户身份与角色编码，客户端通过 `Authorization: Bearer <token>` 访问受保护接口
+- `logout` 当前为无状态确认接口，不做服务端 Token 黑名单
 - 后端环境边界固定分为 `local`、`test`、`prod`
-- `test` 环境默认禁用外部 PostgreSQL / Redis 自动装配，保证基础测试不依赖本地基础设施
+- `test` 环境默认使用 H2 并禁用外部 PostgreSQL / Redis 自动装配，保证认证链路测试不依赖本地基础设施
 - 部署平台优先选择阿里云单机环境
 
 ## 3. 目标总体架构
@@ -68,7 +74,7 @@
 
 ## 3.1 当前已落地运行拓扑
 
-截至第 5 步代码落地，当前本地运行拓扑如下：
+截至第 6 步代码落地，当前本地运行拓扑如下：
 
 1. `deploy/local/docker-compose.yml` 启动 `PostgreSQL + pgvector` 与 `Redis`
 2. `backend` 默认以 `local` profile 启动，并通过 `AI_INTERVIEW_*` 环境变量连接本地依赖
@@ -77,6 +83,24 @@
 5. 后端通过 `GET /api/tasks/{taskId}` 预留异步任务状态查询契约，后续各类 Agent 工作流统一复用
 6. 后端启动时通过 `RequestTraceFilter` 为每个请求补充 `X-Request-Id` 并输出请求级日志
 7. 后端启动时通过 Flyway 自动执行 `backend/src/main/resources/db/migration/` 下的数据库迁移脚本
+8. 后端通过 Spring Security 过滤器链接入 JWT 认证过滤器，并统一处理认证失败与无权限响应
+9. 当前开放接口为 `/api/health/**`、`/api/tasks/**`、`/api/test/**`、`POST /api/auth/register`、`POST /api/auth/login`
+10. 当前受保护接口为 `GET /api/auth/me` 与 `POST /api/auth/logout`
+
+## 3.2 当前认证链路
+
+第 6 步落地后的认证链路如下：
+
+1. 用户通过 `POST /api/auth/register` 提交用户名、邮箱、密码、昵称
+2. 后端校验用户名和邮箱唯一性，密码使用 `BCrypt` 编码后写入 `sys_user`
+3. 后端为自注册用户自动绑定 `ROLE_USER`
+4. 用户通过 `POST /api/auth/login` 使用用户名或邮箱登录
+5. 后端校验账号状态，只允许 `ACTIVE` 用户登录
+6. 登录成功后生成 JWT，并回写 `last_login_at` 与 `last_login_ip`
+7. 客户端后续通过 `Authorization: Bearer <token>` 访问受保护接口
+8. `JwtAuthenticationFilter` 解析 Token 后装配当前用户与角色信息
+9. `GET /api/auth/me` 返回当前认证用户的基础信息与角色列表
+10. `POST /api/auth/logout` 返回无状态退出提示，由客户端自行丢弃 Token
 
 ## 4. 目标模块划分
 
@@ -117,6 +141,7 @@
 - 后端已经具备统一成功/失败返回结构与全局异常处理能力
 - 后端已经具备参数校验错误统一返回与请求追踪日志能力
 - 后端认证与权限数据模型已经补齐状态字段、角色类型、角色绑定状态与审计字段
+- 后端认证基础链路已经落地，包含注册、登录、JWT、当前用户查询、退出登录
 - 前端已经具备最小 Vue 3 + Vite 启动能力
 - 前端已经建立基础路由和页面占位
 - 前端已经具备面向本地联调的代理配置与运行时环境变量入口
@@ -127,7 +152,7 @@
 
 ### 根目录
 
-- `README.md`：记录当前本地启动方式、环境要求、第 1-5 步实施状态与第 5 步验证清单
+- `README.md`：记录当前本地启动方式、环境要求、第 1-6 步实施状态与第 6 步验证清单
 - `.gitignore`：忽略后端构建产物、前端依赖、前端本地环境文件与本地基础设施环境文件
 - `AGENTS.md`：约束后续 AI 开发者的协作方式、文档基线与实现规则
 
@@ -139,12 +164,12 @@
 
 ### backend
 
-- `backend/pom.xml`：后端 Maven 工程定义，当前已接入 Web、Validation、Actuator、JDBC、Redis、PostgreSQL 与 Flyway 依赖
+- `backend/pom.xml`：后端 Maven 工程定义，当前已接入 Web、Security、Validation、Actuator、JDBC、Redis、PostgreSQL、Flyway、JWT 与测试用 H2 依赖
 - `backend/src/main/java/com/offerdungeon/AiInterviewBattleRoomApplication.java`：后端应用启动入口，同时开启 `ConfigurationProperties` 扫描
 - `backend/src/main/java/com/offerdungeon/common/config/AsyncTaskProperties.java`：统一异步任务状态查询基础配置，约束状态路径、轮询间隔与超时时间
 - `backend/src/main/java/com/offerdungeon/common/controller/HealthController.java`：基础健康检查接口，返回服务状态、当前 profile 与异步任务状态查询入口
 - `backend/src/main/java/com/offerdungeon/common/controller/TaskStatusController.java`：异步任务状态查询占位接口，供第 2 步预留统一轮询契约
-- `backend/src/main/java/com/offerdungeon/common/exception/ApiErrorCode.java`：统一错误码定义，约束成功、参数错误、业务错误与系统错误编码
+- `backend/src/main/java/com/offerdungeon/common/exception/ApiErrorCode.java`：统一错误码定义，约束成功、参数错误、业务错误、未认证与无权限编码
 - `backend/src/main/java/com/offerdungeon/common/exception/BusinessException.java`：后续业务模块复用的基础业务异常类型
 - `backend/src/main/java/com/offerdungeon/common/exception/GlobalExceptionHandler.java`：全局异常处理，统一封装参数错误、业务错误和系统错误响应
 - `backend/src/main/java/com/offerdungeon/common/model/AsyncTaskStatusResponse.java`：异步任务状态查询返回结构，占位定义后续统一复用
@@ -154,21 +179,33 @@
 - `backend/src/main/java/com/offerdungeon/common/web/ApiResponseBodyAdvice.java`：对控制器成功响应自动包装为统一 API 结构
 - `backend/src/main/java/com/offerdungeon/common/web/RequestTraceContext.java`：请求追踪上下文工具，统一读取当前请求的 `requestId`
 - `backend/src/main/java/com/offerdungeon/common/web/RequestTraceFilter.java`：请求追踪过滤器，负责 `X-Request-Id` 透传/生成与请求级日志输出
-- `backend/src/main/resources/application.yml`：公共基础配置，定义应用名、默认 `local` profile、端口和异步任务基础配置
-- `backend/src/test/java/com/offerdungeon/common/CommonApiContractTest.java`：第 4 步公共能力契约测试，验证统一响应、错误处理和请求追踪头
-- `backend/src/main/resources/db/migration/V1__init_system_baseline.sql`：第一个 Flyway 迁移脚本，负责启用扩展、建立最小系统表并初始化默认管理员
+- `backend/src/main/java/com/offerdungeon/auth/config/JwtProperties.java`：JWT 基础配置映射，约束签发方、密钥和过期时间
+- `backend/src/main/java/com/offerdungeon/auth/config/SecurityConfig.java`：Spring Security 安全链配置，定义开放接口与受保护接口
+- `backend/src/main/java/com/offerdungeon/auth/controller/AuthController.java`：认证基础接口，暴露注册、登录、退出登录与当前用户接口
+- `backend/src/main/java/com/offerdungeon/auth/service/AuthService.java`：认证服务，实现注册、登录、用户状态校验、默认角色绑定与当前用户装配
+- `backend/src/main/java/com/offerdungeon/auth/service/JwtTokenService.java`：JWT 签发与解析服务
+- `backend/src/main/java/com/offerdungeon/auth/security/JwtAuthenticationFilter.java`：JWT 认证过滤器，负责从请求头解析 Token 并写入认证上下文
+- `backend/src/main/java/com/offerdungeon/auth/security/RestAuthenticationEntryPoint.java`：未认证访问时统一返回 `UNAUTHORIZED`
+- `backend/src/main/java/com/offerdungeon/auth/security/RestAccessDeniedHandler.java`：已认证但无权限访问时统一返回 `FORBIDDEN`
+- `backend/src/main/java/com/offerdungeon/auth/repository/AuthUserRepository.java`：认证侧用户查询、创建、角色绑定与登录信息回写
+- `backend/src/main/java/com/offerdungeon/auth/support/ClientIpResolver.java`：登录 IP 解析工具
+- `backend/src/main/resources/application.yml`：公共基础配置，定义应用名、默认 `local` profile、端口、异步任务配置与 JWT 配置
 - `backend/src/main/resources/application-local.yml`：本地开发配置，负责读取 PostgreSQL / Redis 的 `AI_INTERVIEW_*` 环境变量并暴露详细健康信息
 - `backend/src/main/resources/application-prod.yml`：生产环境配置边界，要求显式提供 PostgreSQL / Redis 环境变量并收敛健康信息暴露
-- `backend/src/test/resources/application-test.yml`：测试环境配置，显式关闭 PostgreSQL / Redis 自动装配，避免基础测试依赖外部服务
-- `backend/src/test/java/com/offerdungeon/AiInterviewBattleRoomApplicationTests.java`：最小上下文加载测试骨架，默认使用 `test` profile 运行
-- `backend/src/main/resources/db/migration/V2__enhance_auth_rbac_model.sql`：第 5 步认证与权限数据模型增强迁移，补齐状态字段、审计字段、角色类型与导师角色预留
-- `backend/src/test/java/com/offerdungeon/migration/FlywayBaselineMigrationIT.java`：数据库迁移集成验证测试，临时建库并校验 V1/V2 迁移、默认角色种子、多角色绑定与状态约束
+- `backend/src/test/resources/application-test.yml`：测试环境配置，使用独立 H2 内存库并禁用外部 PostgreSQL / Redis 自动装配
+- `backend/src/test/resources/schema.sql`：第 6 步认证测试所需测试表结构
+- `backend/src/test/resources/data.sql`：第 6 步认证测试初始化数据
+- `backend/src/main/resources/db/migration/V1__init_system_baseline.sql`：第 3 步数据库基线迁移
+- `backend/src/main/resources/db/migration/V2__enhance_auth_rbac_model.sql`：第 5 步认证与权限数据模型增强迁移
+- `backend/src/test/java/com/offerdungeon/common/CommonApiContractTest.java`：第 4 步公共能力契约测试
+- `backend/src/test/java/com/offerdungeon/migration/FlywayBaselineMigrationIT.java`：第 5 步数据库迁移集成验证测试
+- `backend/src/test/java/com/offerdungeon/auth/AuthIntegrationTest.java`：第 6 步认证基础链路集成测试
 - `backend/.mvn/settings-local.xml`：仓库内 Maven settings，规避当前机器全局 Maven 仓库路径权限问题
 
 ### backend 预留目录
 
 - `backend/src/main/java/com/offerdungeon/common/`：后续放公共配置、异常、统一返回模型等横切能力
-- `backend/src/main/java/com/offerdungeon/auth/`：后续放注册、登录、JWT、权限相关实现
+- `backend/src/main/java/com/offerdungeon/auth/`：当前已落地认证基础能力，后续继续承接权限控制扩展
 - `backend/src/main/java/com/offerdungeon/user/`：后续放用户中心实现
 - `backend/src/main/java/com/offerdungeon/resume/`：后续放简历上传、解析、版本管理实现
 - `backend/src/main/java/com/offerdungeon/job/`：后续放岗位与 JD 管理实现
@@ -233,6 +270,13 @@
 7. 生成复盘报告
 8. 查看历史记录与后台管理数据
 
+当前已打通到第 1 个关键节点的“后端最小闭环”：
+
+1. 用户注册
+2. 用户登录并获取 JWT
+3. 用户携带 JWT 获取当前登录信息
+4. 用户退出登录并由客户端清理 Token
+
 ## 6. 关键架构原则
 
 - 单体优先，不拆微服务
@@ -244,11 +288,15 @@
 - 原始文本与结构化输出分开存储
 - 所有关键 AI 输出必须具备结构校验与失败兜底
 - 数据库变更统一通过迁移脚本管理
+- 鉴权错误必须统一返回结构化错误响应，便于前端直接消费
+- 在第 7 步之前，只实现最小认证闭环，不提前扩散业务权限复杂度
 
 ## 7. 当前待补充内容
 
 以下内容需要在开发推进过程中逐步补齐：
 
+- 第 7 步业务接口权限收口方案与角色访问边界
+- 登录注册前端页面与真实后端接口联调
 - 数据库表关系图
 - 接口分层说明
 - Agent 工作流调用图

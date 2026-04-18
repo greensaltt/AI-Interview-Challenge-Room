@@ -14,6 +14,11 @@ app:
     status-base-path: ${AI_INTERVIEW_TASK_STATUS_BASE_PATH:/api/tasks}
     poll-interval: ${AI_INTERVIEW_TASK_POLL_INTERVAL:3s}
     timeout: ${AI_INTERVIEW_TASK_TIMEOUT:10m}
+  security:
+    jwt:
+      issuer: ${AI_INTERVIEW_JWT_ISSUER:ai-interview-battle-room}
+      secret: ${AI_INTERVIEW_JWT_SECRET:change-this-dev-jwt-secret-to-a-32-byte-value}
+      access-token-ttl: ${AI_INTERVIEW_JWT_ACCESS_TOKEN_TTL:2h}
 
 management:
   endpoints:
