@@ -65,7 +65,7 @@
 
 - 暂无明确功能性阻塞
 - 后续开发前需继续保持本机 Maven 与 Java 运行时均指向 JDK 21
-- 已观察到部分本机环境可能出现 `java -version` 为 21 但 `mvn -version` 仍绑定 JDK 17 的情况，继续推进第 3 步前需优先校正 `JAVA_HOME`（可通过运行powershell: $env:JAVA_HOME="D:\java\jdk_pack21" 以及powershell: $env:Path="$env:JAVA_HOME\bin;$env:Path" 来解决）
+- 已观察到部分本机环境可能出现 `java -version` 为 21 但 `mvn -version` 仍绑定 JDK 17 的情况，继续推进第 3 步前需优先校正 `JAVA_HOME`
 
 ## 8. 最近一次更新时间
 
