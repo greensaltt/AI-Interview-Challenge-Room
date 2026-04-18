@@ -14,7 +14,7 @@
 
 ## 2. 当前架构状态
 
-当前状态：`第 4 步已完成并通过验证，后端公共能力已接入，准备进入第 5 步`
+当前状态：`第 5 步已完成并通过验证，认证与权限数据模型已落地，准备进入第 6 步`
 
 说明：
 
@@ -28,6 +28,10 @@
 - 后端已建立统一 API 返回结构、全局异常处理与参数校验错误返回
 - 后端已建立请求级追踪过滤器，支持 `X-Request-Id` 透传/生成与日志关联
 - 第 4 步自动化契约测试已补充，覆盖成功响应、参数错误响应与系统异常兜底
+- 第 5 步已补充认证与权限数据模型增强迁移，补齐用户状态、角色状态、角色类型、角色绑定状态和审计字段
+- `ROLE_MENTOR` 已作为预留角色落库，但默认保持禁用状态，避免提前进入导师业务实现
+- 迁移集成测试已扩展为同时验证 V1/V2 迁移、默认角色种子、多角色绑定与状态约束
+- 第 5 步已完成本地验证，确认迁移集成测试在 PowerShell 中可通过为 `-D` 参数加引号或使用 `--%` 停止解析两种方式执行
 - 本文档将在工程推进过程中持续更新
 
 当前已确认的关键技术决策：
@@ -42,6 +46,10 @@
 - `PostgreSQL` 本地环境在初始化阶段必须启用 `pgvector`
 - 数据库结构变更从第 3 步开始统一通过 `Flyway` 管理
 - 首个迁移版本同时启用 `vector` 与 `pgcrypto` 扩展，保证向量能力和默认密码安全种子可用
+- 认证与权限模型当前采用“三层结构”：`sys_user`、`sys_role`、`sys_user_role`
+- 用户状态固定为 `ACTIVE / DISABLED / LOCKED / DELETED`
+- 角色状态固定为 `ACTIVE / DISABLED`，角色类型固定为 `SYSTEM / EXTENSION / RESERVED`
+- 用户角色关系状态固定为 `ACTIVE / REVOKED / EXPIRED`
 - 后端环境边界固定分为 `local`、`test`、`prod`
 - `test` 环境默认禁用外部 PostgreSQL / Redis 自动装配，保证基础测试不依赖本地基础设施
 - 部署平台优先选择阿里云单机环境
@@ -60,7 +68,7 @@
 
 ## 3.1 当前已落地运行拓扑
 
-截至第 4 步代码落地，当前本地运行拓扑如下：
+截至第 5 步代码落地，当前本地运行拓扑如下：
 
 1. `deploy/local/docker-compose.yml` 启动 `PostgreSQL + pgvector` 与 `Redis`
 2. `backend` 默认以 `local` profile 启动，并通过 `AI_INTERVIEW_*` 环境变量连接本地依赖
@@ -108,6 +116,7 @@
 - 后端已经暴露基础健康检查接口、依赖探针接口和异步任务状态查询占位接口
 - 后端已经具备统一成功/失败返回结构与全局异常处理能力
 - 后端已经具备参数校验错误统一返回与请求追踪日志能力
+- 后端认证与权限数据模型已经补齐状态字段、角色类型、角色绑定状态与审计字段
 - 前端已经具备最小 Vue 3 + Vite 启动能力
 - 前端已经建立基础路由和页面占位
 - 前端已经具备面向本地联调的代理配置与运行时环境变量入口
@@ -118,7 +127,7 @@
 
 ### 根目录
 
-- `README.md`：记录当前本地启动方式、环境要求、第 1-4 步实施状态与第 4 步验证清单
+- `README.md`：记录当前本地启动方式、环境要求、第 1-5 步实施状态与第 5 步验证清单
 - `.gitignore`：忽略后端构建产物、前端依赖、前端本地环境文件与本地基础设施环境文件
 - `AGENTS.md`：约束后续 AI 开发者的协作方式、文档基线与实现规则
 
@@ -152,7 +161,8 @@
 - `backend/src/main/resources/application-prod.yml`：生产环境配置边界，要求显式提供 PostgreSQL / Redis 环境变量并收敛健康信息暴露
 - `backend/src/test/resources/application-test.yml`：测试环境配置，显式关闭 PostgreSQL / Redis 自动装配，避免基础测试依赖外部服务
 - `backend/src/test/java/com/offerdungeon/AiInterviewBattleRoomApplicationTests.java`：最小上下文加载测试骨架，默认使用 `test` profile 运行
-- `backend/src/test/java/com/offerdungeon/migration/FlywayBaselineMigrationIT.java`：第 3 步数据库迁移集成验证测试，临时建库并校验迁移结果
+- `backend/src/main/resources/db/migration/V2__enhance_auth_rbac_model.sql`：第 5 步认证与权限数据模型增强迁移，补齐状态字段、审计字段、角色类型与导师角色预留
+- `backend/src/test/java/com/offerdungeon/migration/FlywayBaselineMigrationIT.java`：数据库迁移集成验证测试，临时建库并校验 V1/V2 迁移、默认角色种子、多角色绑定与状态约束
 - `backend/.mvn/settings-local.xml`：仓库内 Maven settings，规避当前机器全局 Maven 仓库路径权限问题
 
 ### backend 预留目录
