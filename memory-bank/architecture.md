@@ -14,7 +14,7 @@
 
 ## 2. 当前架构状态
 
-当前状态：`第 2 步已完成，工程骨架与本地基础设施运行环境已就绪`
+当前状态：`第 3 步已完成代码落地，数据库迁移基线已建立，等待人工验证后进入第 4 步`
 
 说明：
 
@@ -22,6 +22,9 @@
 - `backend/` 与 `frontend/` 已完成最小可运行工程初始化
 - 本地 PostgreSQL、pgvector、Redis 已具备统一启动方式
 - 后端已具备基础依赖探针能力与异步任务状态查询契约占位
+- 后端已接入 Flyway，数据库基线迁移脚本已落地
+- 最小系统表 `sys_user`、`sys_role`、`sys_user_role` 已通过首个迁移版本建立
+- 默认管理员账号、管理员角色与角色关联关系已通过迁移脚本初始化
 - 本文档将在工程推进过程中持续更新
 
 当前已确认的关键技术决策：
@@ -34,6 +37,8 @@
 - 异步任务交互方式为“提交任务 -> 返回 taskId -> 前端轮询状态”
 - 本地开发依赖服务统一通过 `Docker Compose` 管理
 - `PostgreSQL` 本地环境在初始化阶段必须启用 `pgvector`
+- 数据库结构变更从第 3 步开始统一通过 `Flyway` 管理
+- 首个迁移版本同时启用 `vector` 与 `pgcrypto` 扩展，保证向量能力和默认密码安全种子可用
 - 后端环境边界固定分为 `local`、`test`、`prod`
 - `test` 环境默认禁用外部 PostgreSQL / Redis 自动装配，保证基础测试不依赖本地基础设施
 - 部署平台优先选择阿里云单机环境
@@ -52,13 +57,14 @@
 
 ## 3.1 当前已落地运行拓扑
 
-截至第 2 步，当前本地运行拓扑如下：
+截至第 3 步代码落地，当前本地运行拓扑如下：
 
 1. `deploy/local/docker-compose.yml` 启动 `PostgreSQL + pgvector` 与 `Redis`
 2. `backend` 默认以 `local` profile 启动，并通过 `AI_INTERVIEW_*` 环境变量连接本地依赖
 3. `frontend` 在开发模式下通过 Vite 代理将 `/api` 与 `/actuator` 转发给后端
 4. 后端通过 `GET /api/health/dependencies` 暴露本地依赖探针结果
 5. 后端通过 `GET /api/tasks/{taskId}` 预留异步任务状态查询契约，后续各类 Agent 工作流统一复用
+6. 后端启动时通过 Flyway 自动执行 `backend/src/main/resources/db/migration/` 下的数据库迁移脚本
 
 ## 4. 目标模块划分
 
@@ -118,7 +124,7 @@
 
 ### backend
 
-- `backend/pom.xml`：后端 Maven 工程定义，当前已接入 Web、Validation、Actuator、JDBC、Redis 与 PostgreSQL 驱动依赖
+- `backend/pom.xml`：后端 Maven 工程定义，当前已接入 Web、Validation、Actuator、JDBC、Redis、PostgreSQL 与 Flyway 依赖
 - `backend/src/main/java/com/offerdungeon/AiInterviewBattleRoomApplication.java`：后端应用启动入口，同时开启 `ConfigurationProperties` 扫描
 - `backend/src/main/java/com/offerdungeon/common/config/AsyncTaskProperties.java`：统一异步任务状态查询基础配置，约束状态路径、轮询间隔与超时时间
 - `backend/src/main/java/com/offerdungeon/common/controller/HealthController.java`：基础健康检查接口，返回服务状态、当前 profile 与异步任务状态查询入口
@@ -126,10 +132,13 @@
 - `backend/src/main/java/com/offerdungeon/common/model/AsyncTaskStatusResponse.java`：异步任务状态查询返回结构，占位定义后续统一复用
 - `backend/src/main/java/com/offerdungeon/common/service/InfrastructureProbeService.java`：基础设施探针服务，检查 PostgreSQL 连接、`pgvector` 扩展与 Redis 连通性
 - `backend/src/main/resources/application.yml`：公共基础配置，定义应用名、默认 `local` profile、端口和异步任务基础配置
+- `backend/src/main/resources/db/migration/V1__init_system_baseline.sql`：第一个 Flyway 迁移脚本，负责启用扩展、建立最小系统表并初始化默认管理员
 - `backend/src/main/resources/application-local.yml`：本地开发配置，负责读取 PostgreSQL / Redis 的 `AI_INTERVIEW_*` 环境变量并暴露详细健康信息
 - `backend/src/main/resources/application-prod.yml`：生产环境配置边界，要求显式提供 PostgreSQL / Redis 环境变量并收敛健康信息暴露
 - `backend/src/test/resources/application-test.yml`：测试环境配置，显式关闭 PostgreSQL / Redis 自动装配，避免基础测试依赖外部服务
 - `backend/src/test/java/com/offerdungeon/AiInterviewBattleRoomApplicationTests.java`：最小上下文加载测试骨架，默认使用 `test` profile 运行
+- `backend/src/test/java/com/offerdungeon/migration/FlywayBaselineMigrationIT.java`：第 3 步数据库迁移集成验证测试，临时建库并校验迁移结果
+- `backend/.mvn/settings-local.xml`：仓库内 Maven settings，规避当前机器全局 Maven 仓库路径权限问题
 
 ### backend 预留目录
 
