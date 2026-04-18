@@ -14,7 +14,7 @@
 
 ## 2. 当前架构状态
 
-当前状态：`第 3 步已完成代码落地，数据库迁移基线已建立，等待人工验证后进入第 4 步`
+当前状态：`第 4 步已完成并通过验证，后端公共能力已接入，准备进入第 5 步`
 
 说明：
 
@@ -25,6 +25,9 @@
 - 后端已接入 Flyway，数据库基线迁移脚本已落地
 - 最小系统表 `sys_user`、`sys_role`、`sys_user_role` 已通过首个迁移版本建立
 - 默认管理员账号、管理员角色与角色关联关系已通过迁移脚本初始化
+- 后端已建立统一 API 返回结构、全局异常处理与参数校验错误返回
+- 后端已建立请求级追踪过滤器，支持 `X-Request-Id` 透传/生成与日志关联
+- 第 4 步自动化契约测试已补充，覆盖成功响应、参数错误响应与系统异常兜底
 - 本文档将在工程推进过程中持续更新
 
 当前已确认的关键技术决策：
@@ -57,14 +60,15 @@
 
 ## 3.1 当前已落地运行拓扑
 
-截至第 3 步代码落地，当前本地运行拓扑如下：
+截至第 4 步代码落地，当前本地运行拓扑如下：
 
 1. `deploy/local/docker-compose.yml` 启动 `PostgreSQL + pgvector` 与 `Redis`
 2. `backend` 默认以 `local` profile 启动，并通过 `AI_INTERVIEW_*` 环境变量连接本地依赖
 3. `frontend` 在开发模式下通过 Vite 代理将 `/api` 与 `/actuator` 转发给后端
 4. 后端通过 `GET /api/health/dependencies` 暴露本地依赖探针结果
 5. 后端通过 `GET /api/tasks/{taskId}` 预留异步任务状态查询契约，后续各类 Agent 工作流统一复用
-6. 后端启动时通过 Flyway 自动执行 `backend/src/main/resources/db/migration/` 下的数据库迁移脚本
+6. 后端启动时通过 `RequestTraceFilter` 为每个请求补充 `X-Request-Id` 并输出请求级日志
+7. 后端启动时通过 Flyway 自动执行 `backend/src/main/resources/db/migration/` 下的数据库迁移脚本
 
 ## 4. 目标模块划分
 
@@ -102,6 +106,8 @@
 
 - 后端已经具备最小 Spring Boot 启动能力
 - 后端已经暴露基础健康检查接口、依赖探针接口和异步任务状态查询占位接口
+- 后端已经具备统一成功/失败返回结构与全局异常处理能力
+- 后端已经具备参数校验错误统一返回与请求追踪日志能力
 - 前端已经具备最小 Vue 3 + Vite 启动能力
 - 前端已经建立基础路由和页面占位
 - 前端已经具备面向本地联调的代理配置与运行时环境变量入口
@@ -112,7 +118,7 @@
 
 ### 根目录
 
-- `README.md`：记录当前本地启动方式、环境要求、第 1-2 步实施范围与验证清单
+- `README.md`：记录当前本地启动方式、环境要求、第 1-4 步实施状态与第 4 步验证清单
 - `.gitignore`：忽略后端构建产物、前端依赖、前端本地环境文件与本地基础设施环境文件
 - `AGENTS.md`：约束后续 AI 开发者的协作方式、文档基线与实现规则
 
@@ -129,9 +135,18 @@
 - `backend/src/main/java/com/offerdungeon/common/config/AsyncTaskProperties.java`：统一异步任务状态查询基础配置，约束状态路径、轮询间隔与超时时间
 - `backend/src/main/java/com/offerdungeon/common/controller/HealthController.java`：基础健康检查接口，返回服务状态、当前 profile 与异步任务状态查询入口
 - `backend/src/main/java/com/offerdungeon/common/controller/TaskStatusController.java`：异步任务状态查询占位接口，供第 2 步预留统一轮询契约
+- `backend/src/main/java/com/offerdungeon/common/exception/ApiErrorCode.java`：统一错误码定义，约束成功、参数错误、业务错误与系统错误编码
+- `backend/src/main/java/com/offerdungeon/common/exception/BusinessException.java`：后续业务模块复用的基础业务异常类型
+- `backend/src/main/java/com/offerdungeon/common/exception/GlobalExceptionHandler.java`：全局异常处理，统一封装参数错误、业务错误和系统错误响应
 - `backend/src/main/java/com/offerdungeon/common/model/AsyncTaskStatusResponse.java`：异步任务状态查询返回结构，占位定义后续统一复用
+- `backend/src/main/java/com/offerdungeon/common/model/ApiResponse.java`：统一 API 返回结构，封装 `success/code/message/requestId/timestamp/data/errors`
+- `backend/src/main/java/com/offerdungeon/common/model/ApiErrorDetail.java`：统一错误明细结构，承载字段级校验错误信息
 - `backend/src/main/java/com/offerdungeon/common/service/InfrastructureProbeService.java`：基础设施探针服务，检查 PostgreSQL 连接、`pgvector` 扩展与 Redis 连通性
+- `backend/src/main/java/com/offerdungeon/common/web/ApiResponseBodyAdvice.java`：对控制器成功响应自动包装为统一 API 结构
+- `backend/src/main/java/com/offerdungeon/common/web/RequestTraceContext.java`：请求追踪上下文工具，统一读取当前请求的 `requestId`
+- `backend/src/main/java/com/offerdungeon/common/web/RequestTraceFilter.java`：请求追踪过滤器，负责 `X-Request-Id` 透传/生成与请求级日志输出
 - `backend/src/main/resources/application.yml`：公共基础配置，定义应用名、默认 `local` profile、端口和异步任务基础配置
+- `backend/src/test/java/com/offerdungeon/common/CommonApiContractTest.java`：第 4 步公共能力契约测试，验证统一响应、错误处理和请求追踪头
 - `backend/src/main/resources/db/migration/V1__init_system_baseline.sql`：第一个 Flyway 迁移脚本，负责启用扩展、建立最小系统表并初始化默认管理员
 - `backend/src/main/resources/application-local.yml`：本地开发配置，负责读取 PostgreSQL / Redis 的 `AI_INTERVIEW_*` 环境变量并暴露详细健康信息
 - `backend/src/main/resources/application-prod.yml`：生产环境配置边界，要求显式提供 PostgreSQL / Redis 环境变量并收敛健康信息暴露
@@ -224,7 +239,6 @@
 
 以下内容需要在开发推进过程中逐步补齐：
 
-- 数据库迁移基线与初始管理员数据写入策略
 - 数据库表关系图
 - 接口分层说明
 - Agent 工作流调用图

@@ -1,12 +1,17 @@
 # AI 面试闯关作战室
 
-本仓库当前已完成实施计划前 3 步中的前两步，并已落地第 3 步的数据库迁移基线代码：
+本仓库当前已完成实施计划前 4 步中的代码落地：
 
 - 第 1 步：前后端工程骨架
 - 第 2 步：本地基础设施运行环境
 - 第 3 步：Flyway 数据库迁移基线、最小系统表、默认管理员初始化
+- 第 4 步：后端公共能力，包括统一 API 返回结构、全局异常处理、参数校验错误返回、请求追踪日志
 
-当前还没有开始第 4 步及之后的公共能力与鉴权实现。
+当前状态：
+
+- 第 4 步代码已完成并通过人工验证
+- 还没有开始第 5 步“认证与权限数据模型”
+- `progress.md` 已同步更新到第 4 步完成状态
 
 ## 目录说明
 
@@ -62,7 +67,7 @@ mvn -s .mvn/settings-local.xml spring-boot:run
 - 服务启动在 `http://localhost:8080`
 - 健康检查接口：`http://localhost:8080/api/health`
 - 依赖探针接口：`http://localhost:8080/api/health/dependencies`
-- 异步任务状态占位接口：`http://localhost:8080/api/tasks/{taskId}`
+- 异步任务状态接口：`http://localhost:8080/api/tasks/{taskId}`
 - 应用启动时会自动执行 Flyway 迁移
 
 ### 3. 启动前端
@@ -86,97 +91,151 @@ npm run dev
 - 首页可访问
 - `/api` 和 `/actuator` 会代理到 `VITE_DEV_PROXY_TARGET`
 
-## 第 3 步验证说明
+## 第 4 步验证说明
 
 ### 验证目标
 
 需要确认以下几点：
 
-1. 空数据库可以被 Flyway 正常初始化
-2. 重复启动后端或重复执行迁移不会重复建表
-3. `flyway_schema_history` 中存在迁移记录
-4. 最小系统表已建立：`sys_user`、`sys_role`、`sys_user_role`
-5. 默认管理员账号、邮箱、密码和角色关系与约定一致
+1. 基础接口都会返回统一成功结构
+2. 非法参数请求会返回统一错误结构
+3. 返回头中包含请求追踪标识 `X-Request-Id`
+4. 后端控制台日志中能看到请求路径、状态码、耗时
+5. 完成第 4 步验证前，不进入第 5 步
 
-### 手工验证步骤
+### 方式 A：直接手工验证接口与日志
 
-#### 方式 A：直接启动后端后验证数据库
-
-1. 启动本地依赖服务
+#### 第一步：启动本地依赖
 
 ```powershell
 docker compose --env-file deploy/local/.env -f deploy/local/docker-compose.yml up -d
 ```
 
-2. 启动后端，让 Flyway 自动执行迁移
+#### 第二步：启动后端
 
 ```powershell
 cd backend
 mvn -s .mvn/settings-local.xml spring-boot:run
 ```
 
-3. 打开一个新的终端，检查迁移历史
+#### 第三步：验证统一成功返回
+
+打开新终端执行：
 
 ```powershell
-docker exec ai-interview-postgres psql -U postgres -d ai_interview_battle_room -c "select installed_rank, version, description, success from flyway_schema_history order by installed_rank;"
+curl.exe -i -H "X-Request-Id: manual-health-check" http://localhost:8080/api/health
 ```
 
-4. 检查基线表是否存在
+重点看这些内容：
+
+- 响应状态码为 `200`
+- 响应头包含 `X-Request-Id: manual-health-check`
+- 响应体包含 `success=true`
+- 响应体包含 `code=SUCCESS`
+- 响应体中的 `data.status` 为 `UP`
+
+预期响应结构示意：
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Request completed successfully.",
+  "requestId": "manual-health-check",
+  "timestamp": "2026-04-18T16:00:00Z",
+  "data": {
+    "status": "UP",
+    "service": "backend",
+    "activeProfiles": ["local"],
+    "taskStatusEndpoint": "/api/tasks/{taskId}"
+  }
+}
+```
+
+#### 第四步：验证统一参数错误返回
+
+继续执行一个故意非法的 `taskId`：
 
 ```powershell
-docker exec ai-interview-postgres psql -U postgres -d ai_interview_battle_room -c "\dt sys_*"
+curl.exe -i -H "X-Request-Id: manual-validation-check" http://localhost:8080/api/tasks/a
 ```
 
-5. 检查默认管理员和角色关系
+这里的 `a` 长度小于 4，会触发参数校验。
 
-```powershell
-docker exec ai-interview-postgres psql -U postgres -d ai_interview_battle_room -c "select u.username, u.email, u.user_status, r.role_code from sys_user u join sys_user_role ur on ur.user_id = u.id join sys_role r on r.id = ur.role_id where u.username = 'admin';"
+重点看这些内容：
+
+- 响应状态码为 `400`
+- 响应头包含 `X-Request-Id: manual-validation-check`
+- 响应体包含 `success=false`
+- 响应体包含 `code=VALIDATION_ERROR`
+- 响应体 `errors[0].field` 为 `taskId`
+
+预期响应结构示意：
+
+```json
+{
+  "success": false,
+  "code": "VALIDATION_ERROR",
+  "message": "Request validation failed.",
+  "requestId": "manual-validation-check",
+  "timestamp": "2026-04-18T16:00:00Z",
+  "errors": [
+    {
+      "field": "taskId",
+      "message": "taskId length must be between 4 and 64 characters."
+    }
+  ]
+}
 ```
 
-6. 检查默认密码 `123456` 是否匹配当前管理员密码哈希
+#### 第五步：验证控制台日志里的请求追踪信息
 
-```powershell
-docker exec ai-interview-postgres psql -U postgres -d ai_interview_battle_room -c "select crypt('123456', password_hash) = password_hash as password_matches from sys_user where username = 'admin' and email = '123@qq.com';"
+回到后端启动终端，确认至少能看到类似日志：
+
+```text
+GET /api/health -> 200 (xx ms)
+GET /api/tasks/a -> 400 (xx ms)
 ```
 
-预期结果：
+同时日志行中应包含：
 
-- `flyway_schema_history` 至少有 1 条成功记录，版本为 `1`
-- `sys_user`、`sys_role`、`sys_user_role` 三张表存在
-- 默认管理员用户名为 `admin`
-- 默认管理员邮箱为 `123@qq.com`
-- 默认管理员角色为 `ROLE_ADMIN`
-- 密码校验结果为 `t`
+- `requestId=manual-health-check`
+- `requestId=manual-validation-check`
 
-#### 方式 B：运行迁移集成测试
+这说明请求追踪 ID 已进入日志 MDC。
 
-这个测试会临时创建一个全新的数据库，执行迁移两次，然后校验：
+### 方式 B：运行自动化测试
 
-- 首次迁移成功
-- 二次迁移不会重复执行
-- 默认管理员和角色关系存在
-- 默认密码 `123456` 可匹配种子密码哈希
-
-命令：
+如果你想先快速确认契约层没问题，可以直接运行：
 
 ```powershell
 cd backend
-mvn -o -s .mvn/settings-local.xml -Dtest=FlywayBaselineMigrationIT -Dai.interview.runMigrationTests=true test
+mvn -o -s .mvn/settings-local.xml test
 ```
+
+本次新增的自动化测试会验证：
+
+- `/api/health` 的统一成功结构
+- `/api/tasks/a` 的统一参数错误结构
+- 未处理异常的统一兜底错误结构
+- `X-Request-Id` 追踪头回传
 
 说明：
 
-- `-o` 使用仓库内本地 Maven 仓库，避免被全局 Maven 仓库权限问题影响
-- 该测试要求本地 PostgreSQL 已启动
+- 当前测试使用 `test` profile
+- `test` profile 不依赖本地 PostgreSQL / Redis 自动装配
+- 命令输出里如果看到 Mockito 的动态 agent 警告，可以先忽略，它不影响本次测试结果
 
 ## 当前关键文件
 
-- `backend/src/main/resources/db/migration/V1__init_system_baseline.sql`：第一个 Flyway 迁移脚本
-- `backend/src/test/java/com/offerdungeon/migration/FlywayBaselineMigrationIT.java`：第 3 步迁移验证测试
-- `backend/.mvn/settings-local.xml`：仓库内可用的 Maven settings
+- `backend/src/main/java/com/offerdungeon/common/model/ApiResponse.java`：统一 API 返回结构
+- `backend/src/main/java/com/offerdungeon/common/exception/GlobalExceptionHandler.java`：全局异常处理
+- `backend/src/main/java/com/offerdungeon/common/web/ApiResponseBodyAdvice.java`：统一成功响应包装
+- `backend/src/main/java/com/offerdungeon/common/web/RequestTraceFilter.java`：请求追踪与请求日志
+- `backend/src/test/java/com/offerdungeon/common/CommonApiContractTest.java`：第 4 步公共能力契约测试
 
 ## 说明
 
-- 第 4 步“后端公共能力”尚未开始
-- 在你完成第 3 步验证之前，不会继续进入第 4 步
-- `progress.md` 会在你验证通过后再更新
+- 第 4 步“后端公共能力”代码已经落地
+- 第 4 步已经完成并通过验证
+- 第 5 步尚未开始
