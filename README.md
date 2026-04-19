@@ -13,7 +13,7 @@
 
 - 第 6 步代码已经落地，并已补充自动化集成测试
 - 第 7 步“业务接口权限收口与角色化访问控制”尚未开始
-- `memory-bank/progress.md` 会在你完成人工验证后再更新
+- `memory-bank/progress.md` 已同步记录第 6 步人工验证结论
 
 ## 目录说明
 
@@ -145,24 +145,32 @@ Invoke-RestMethod -Method Get -Uri http://localhost:8080/api/health
 #### 第二步：注册新用户
 
 ```powershell
-$registerBody = @{
+$registerJson = @{
   username = "step6_user"
   email    = "step6_user@example.com"
   password = "12345678"
   nickname = "第六步验证用户"
 } | ConvertTo-Json
 
+$registerBody = [System.Text.Encoding]::UTF8.GetBytes($registerJson)
+
 Invoke-RestMethod -Method Post `
   -Uri http://localhost:8080/api/auth/register `
-  -ContentType "application/json" `
+  -ContentType "application/json; charset=utf-8" `
   -Body $registerBody
 ```
+
+说明：
+
+- 如果你使用的是 Windows PowerShell 5.1，且请求体里包含中文，建议显式按 UTF-8 字节发送，避免本地编码兼容性影响验收结果
+- 如果你使用 PowerShell 7+、Postman 或其他已确认按 UTF-8 发送 JSON 的客户端，可按各自工具的标准 JSON 提交方式验证
 
 重点确认：
 
 - 返回统一 API 结构
 - `data.username` 为 `step6_user`
 - `data.email` 为 `step6_user@example.com`
+- `data.nickname` 为 `第六步验证用户`
 - `data.userStatus` 为 `ACTIVE`
 - `data.roleCodes` 中包含 `ROLE_USER`
 
