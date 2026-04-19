@@ -14,7 +14,7 @@
 
 ## 2. 当前架构状态
 
-当前状态：`第 6 步代码已完成，认证基础能力已落地，等待人工验收；第 7 步尚未开始`
+当前状态：`第 7 步代码已完成并通过人工验收，角色权限控制已落地；第 8 步尚未开始`
 
 说明：
 
@@ -33,8 +33,11 @@
 - 登录支持“用户名或邮箱”两种账号输入方式
 - 密码使用 `BCrypt` 加密存储，并兼容数据库基线中的 bcrypt 密码哈希
 - 登录成功后会回写 `last_login_at` 与 `last_login_ip`
-- 当前鉴权仅收口到最小认证闭环：`/api/auth/me` 与 `/api/auth/logout` 需要 JWT，其余业务接口尚未进入第 7 步权限治理
+- 第 7 步已完成角色权限收口：`/api/admin/**` 统一要求 `ROLE_ADMIN`，其余未显式放开的 `/api/**` 默认要求登录
+- 后端新增 `GET /api/user/access-scope` 与 `GET /api/admin/access-scope` 作为第 7 步最小权限验证接口
+- 未登录访问受保护接口统一返回 `UNAUTHORIZED`，已登录但无权限访问统一返回 `FORBIDDEN`
 - 第 6 步已补充基于 H2 的集成测试，覆盖注册、用户名登录、邮箱登录、受保护接口访问、错误密码与退出登录场景
+- 第 7 步已扩展认证集成测试，覆盖“登录用户访问普通业务接口”“匿名访问业务接口被拒绝”“普通用户访问后台接口被拒绝”“管理员访问后台接口成功”四类场景
 - 本文档将在工程推进过程中持续更新
 
 当前已确认的关键技术决策：
@@ -74,7 +77,7 @@
 
 ## 3.1 当前已落地运行拓扑
 
-截至第 6 步代码落地，当前本地运行拓扑如下：
+截至第 7 步代码落地，当前本地运行拓扑如下：
 
 1. `deploy/local/docker-compose.yml` 启动 `PostgreSQL + pgvector` 与 `Redis`
 2. `backend` 默认以 `local` profile 启动，并通过 `AI_INTERVIEW_*` 环境变量连接本地依赖
@@ -85,7 +88,8 @@
 7. 后端启动时通过 Flyway 自动执行 `backend/src/main/resources/db/migration/` 下的数据库迁移脚本
 8. 后端通过 Spring Security 过滤器链接入 JWT 认证过滤器，并统一处理认证失败与无权限响应
 9. 当前开放接口为 `/api/health/**`、`/api/tasks/**`、`/api/test/**`、`POST /api/auth/register`、`POST /api/auth/login`
-10. 当前受保护接口为 `GET /api/auth/me` 与 `POST /api/auth/logout`
+10. 当前管理员接口路径统一收口为 `/api/admin/**`
+11. 当前其他业务接口路径默认收口为“需要 JWT 才可访问的 `/api/**`”
 
 ## 3.2 当前认证链路
 
@@ -152,7 +156,7 @@
 
 ### 根目录
 
-- `README.md`：记录当前本地启动方式、环境要求、第 1-6 步实施状态与第 6 步验证清单
+- `README.md`：记录当前本地启动方式、环境要求、第 1-7 步实施状态与第 7 步验证清单
 - `.gitignore`：忽略后端构建产物、前端依赖、前端本地环境文件与本地基础设施环境文件
 - `AGENTS.md`：约束后续 AI 开发者的协作方式、文档基线与实现规则
 
@@ -182,6 +186,7 @@
 - `backend/src/main/java/com/offerdungeon/auth/config/JwtProperties.java`：JWT 基础配置映射，约束签发方、密钥和过期时间
 - `backend/src/main/java/com/offerdungeon/auth/config/SecurityConfig.java`：Spring Security 安全链配置，定义开放接口与受保护接口
 - `backend/src/main/java/com/offerdungeon/auth/controller/AuthController.java`：认证基础接口，暴露注册、登录、退出登录与当前用户接口
+- `backend/src/main/java/com/offerdungeon/auth/model/AccessScopeResponse.java`：第 7 步权限范围验证响应模型
 - `backend/src/main/java/com/offerdungeon/auth/service/AuthService.java`：认证服务，实现注册、登录、用户状态校验、默认角色绑定与当前用户装配
 - `backend/src/main/java/com/offerdungeon/auth/service/JwtTokenService.java`：JWT 签发与解析服务
 - `backend/src/main/java/com/offerdungeon/auth/security/JwtAuthenticationFilter.java`：JWT 认证过滤器，负责从请求头解析 Token 并写入认证上下文
@@ -189,6 +194,8 @@
 - `backend/src/main/java/com/offerdungeon/auth/security/RestAccessDeniedHandler.java`：已认证但无权限访问时统一返回 `FORBIDDEN`
 - `backend/src/main/java/com/offerdungeon/auth/repository/AuthUserRepository.java`：认证侧用户查询、创建、角色绑定与登录信息回写
 - `backend/src/main/java/com/offerdungeon/auth/support/ClientIpResolver.java`：登录 IP 解析工具
+- `backend/src/main/java/com/offerdungeon/user/controller/UserAccessController.java`：第 7 步普通业务访问范围验证接口
+- `backend/src/main/java/com/offerdungeon/admin/controller/AdminAccessController.java`：第 7 步管理员访问范围验证接口
 - `backend/src/main/resources/application.yml`：公共基础配置，定义应用名、默认 `local` profile、端口、异步任务配置与 JWT 配置
 - `backend/src/main/resources/application-local.yml`：本地开发配置，负责读取 PostgreSQL / Redis 的 `AI_INTERVIEW_*` 环境变量并暴露详细健康信息
 - `backend/src/main/resources/application-prod.yml`：生产环境配置边界，要求显式提供 PostgreSQL / Redis 环境变量并收敛健康信息暴露
@@ -199,7 +206,7 @@
 - `backend/src/main/resources/db/migration/V2__enhance_auth_rbac_model.sql`：第 5 步认证与权限数据模型增强迁移
 - `backend/src/test/java/com/offerdungeon/common/CommonApiContractTest.java`：第 4 步公共能力契约测试
 - `backend/src/test/java/com/offerdungeon/migration/FlywayBaselineMigrationIT.java`：第 5 步数据库迁移集成验证测试
-- `backend/src/test/java/com/offerdungeon/auth/AuthIntegrationTest.java`：第 6 步认证基础链路集成测试
+- `backend/src/test/java/com/offerdungeon/auth/AuthIntegrationTest.java`：第 6-7 步认证基础链路与权限边界集成测试
 - `backend/.mvn/settings-local.xml`：仓库内 Maven settings，规避当前机器全局 Maven 仓库路径权限问题
 
 ### backend 预留目录
@@ -289,14 +296,14 @@
 - 所有关键 AI 输出必须具备结构校验与失败兜底
 - 数据库变更统一通过迁移脚本管理
 - 鉴权错误必须统一返回结构化错误响应，便于前端直接消费
-- 在第 7 步之前，只实现最小认证闭环，不提前扩散业务权限复杂度
+- 在第 8 步之前，优先完成后端权限收口，不提前展开前端登录态与路由守卫复杂度
 
 ## 7. 当前待补充内容
 
 以下内容需要在开发推进过程中逐步补齐：
 
-- 第 7 步业务接口权限收口方案与角色访问边界
 - 登录注册前端页面与真实后端接口联调
+- 第 8 步前端登录态存储与路由守卫实现
 - 数据库表关系图
 - 接口分层说明
 - Agent 工作流调用图

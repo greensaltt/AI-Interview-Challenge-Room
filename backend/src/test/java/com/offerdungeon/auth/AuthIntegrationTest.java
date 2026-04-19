@@ -10,13 +10,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -34,6 +35,9 @@ class AuthIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void resetUsers() {
@@ -145,6 +149,56 @@ class AuthIntegrationTest {
                 .andExpect(jsonPath("$.data.message").exists());
     }
 
+    @Test
+    void shouldAllowAuthenticatedUserToAccessUserScopeEndpoint() throws Exception {
+        registerDefaultUser();
+        String accessToken = loginAndExtractToken("campus_user");
+
+        mockMvc.perform(get("/api/user/access-scope")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.scope").value("USER"))
+                .andExpect(jsonPath("$.data.username").value("campus_user"))
+                .andExpect(jsonPath("$.data.roleCodes", hasItem("ROLE_USER")));
+    }
+
+    @Test
+    void shouldRejectAnonymousUserWhenAccessingUserScopeEndpoint() throws Exception {
+        mockMvc.perform(get("/api/user/access-scope"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").value("Authentication is required to access this resource."));
+    }
+
+    @Test
+    void shouldRejectNormalUserWhenAccessingAdminScopeEndpoint() throws Exception {
+        registerDefaultUser();
+        String accessToken = loginAndExtractToken("campus_user");
+
+        mockMvc.perform(get("/api/admin/access-scope")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("You do not have permission to access this resource."));
+    }
+
+    @Test
+    void shouldAllowAdminUserToAccessAdminScopeEndpoint() throws Exception {
+        insertAdminUser();
+        String accessToken = loginAndExtractToken("admin");
+
+        mockMvc.perform(get("/api/admin/access-scope")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.scope").value("ADMIN"))
+                .andExpect(jsonPath("$.data.username").value("admin"))
+                .andExpect(jsonPath("$.data.roleCodes", hasItem("ROLE_ADMIN")));
+    }
+
     private void registerDefaultUser() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -156,16 +210,54 @@ class AuthIntegrationTest {
                 .andExpect(status().isOk());
     }
 
+    private void insertAdminUser() {
+        jdbcTemplate.update(
+                """
+                insert into sys_user (
+                    username,
+                    email,
+                    password_hash,
+                    nickname,
+                    user_status,
+                    password_updated_at
+                ) values (?, ?, ?, ?, 'ACTIVE', current_timestamp)
+                """,
+                "admin",
+                "123@qq.com",
+                passwordEncoder.encode("123456"),
+                "系统管理员");
+
+        jdbcTemplate.update(
+                """
+                insert into sys_user_role (user_id, role_id, assignment_status, created_by, updated_by, remark)
+                values (
+                    (select id from sys_user where username = ?),
+                    (select id from sys_role where role_code = 'ROLE_ADMIN'),
+                    'ACTIVE',
+                    (select id from sys_user where username = ?),
+                    (select id from sys_user where username = ?),
+                    'Test admin assignment'
+                )
+                """,
+                "admin",
+                "admin",
+                "admin");
+    }
+
     private String loginAndExtractToken(String account) throws Exception {
         MvcResult mvcResult = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "account", account,
-                                "password", "12345678"))))
+                                "password", resolvePassword(account)))))
                 .andExpect(status().isOk())
                 .andReturn();
 
         JsonNode response = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
         return response.path("data").path("accessToken").asText();
+    }
+
+    private String resolvePassword(String account) {
+        return "admin".equals(account) || "123@qq.com".equals(account) ? "123456" : "12345678";
     }
 }
