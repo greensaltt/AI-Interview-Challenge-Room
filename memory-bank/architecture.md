@@ -14,7 +14,7 @@
 
 ## 2. 当前架构状态
 
-当前状态：`第 7 步代码已完成并通过人工验收，角色权限控制已落地；第 8 步尚未开始`
+当前状态：`第 8 步已完成并通过人工验收，前端登录态与路由守卫已落地`
 
 说明：
 
@@ -38,6 +38,11 @@
 - 未登录访问受保护接口统一返回 `UNAUTHORIZED`，已登录但无权限访问统一返回 `FORBIDDEN`
 - 第 6 步已补充基于 H2 的集成测试，覆盖注册、用户名登录、邮箱登录、受保护接口访问、错误密码与退出登录场景
 - 第 7 步已扩展认证集成测试，覆盖“登录用户访问普通业务接口”“匿名访问业务接口被拒绝”“普通用户访问后台接口被拒绝”“管理员访问后台接口成功”四类场景
+- 第 8 步已落地前端首页、登录页、注册页、用户工作台和管理员页的最小闭环
+- 前端已建立浏览器本地登录态存储，持久化 `accessToken` 与当前用户信息
+- 前端启动时会调用 `GET /api/auth/me` 恢复并校验登录态
+- 前端已建立路由守卫：`/dashboard` 需要登录，`/admin` 需要 `ROLE_ADMIN`
+- 前端已建立基础工作区布局，为后续简历、岗位、计划、任务、面试、报告页面提供统一承载容器
 - 本文档将在工程推进过程中持续更新
 
 当前已确认的关键技术决策：
@@ -77,7 +82,7 @@
 
 ## 3.1 当前已落地运行拓扑
 
-截至第 7 步代码落地，当前本地运行拓扑如下：
+截至第 8 步代码落地，当前本地运行拓扑如下：
 
 1. `deploy/local/docker-compose.yml` 启动 `PostgreSQL + pgvector` 与 `Redis`
 2. `backend` 默认以 `local` profile 启动，并通过 `AI_INTERVIEW_*` 环境变量连接本地依赖
@@ -90,6 +95,8 @@
 9. 当前开放接口为 `/api/health/**`、`/api/tasks/**`、`/api/test/**`、`POST /api/auth/register`、`POST /api/auth/login`
 10. 当前管理员接口路径统一收口为 `/api/admin/**`
 11. 当前其他业务接口路径默认收口为“需要 JWT 才可访问的 `/api/**`”
+12. 前端通过浏览器本地存储维护登录态，并在页面刷新后自动恢复用户会话
+13. 前端工作台会调用 `GET /api/user/access-scope`，管理员页会调用 `GET /api/admin/access-scope` 做最小权限联调验证
 
 ## 3.2 当前认证链路
 
@@ -147,16 +154,17 @@
 - 后端认证与权限数据模型已经补齐状态字段、角色类型、角色绑定状态与审计字段
 - 后端认证基础链路已经落地，包含注册、登录、JWT、当前用户查询、退出登录
 - 前端已经具备最小 Vue 3 + Vite 启动能力
-- 前端已经建立基础路由和页面占位
+- 前端已经建立基础路由、认证状态恢复、路由守卫和基础工作区布局
 - 前端已经具备面向本地联调的代理配置与运行时环境变量入口
 - 本地数据库与缓存依赖已经通过 Docker Compose 固化
-- 后端业务模块目录与前端页面目录已预留，但尚未进入具体业务实现
+- 前端首页、登录页、注册页、工作台、管理员页已经完成第 8 步最小闭环
+- 后端业务模块目录与其余前端页面目录已预留，但尚未进入具体业务实现
 
 ## 4.2 当前关键文件作用说明
 
 ### 根目录
 
-- `README.md`：记录当前本地启动方式、环境要求、第 1-7 步实施状态与第 7 步验证清单
+- `README.md`：记录当前本地启动方式、环境要求，以及第 1-8 步实施状态概览
 - `.gitignore`：忽略后端构建产物、前端依赖、前端本地环境文件与本地基础设施环境文件
 - `AGENTS.md`：约束后续 AI 开发者的协作方式、文档基线与实现规则
 
@@ -234,19 +242,27 @@
 - `frontend/index.html`：前端 HTML 入口
 - `frontend/src/main.ts`：前端应用入口，负责挂载 Vue 应用、路由和全局样式
 - `frontend/src/App.vue`：顶层应用组件，当前仅承载路由出口
-- `frontend/src/router/index.ts`：前端基础路由定义，当前仅包含首页、登录、注册、工作台占位路由
-- `frontend/src/styles/index.css`：当前全局样式文件，用于提供最小视觉骨架
+- `frontend/src/router/index.ts`：前端路由定义，已接入登录态恢复、访客页限制、登录守卫与管理员角色守卫
+- `frontend/src/styles/index.css`：前端全局样式文件，承载首页、认证页和工作区布局的统一视觉样式
 - `frontend/.env.development.example`：前端开发环境模板，约束后端 API 地址、轮询状态路径与开发代理目标
 - `frontend/.env.production.example`：前端生产环境模板，约束生产 API 地址与轮询配置
 - `frontend/src/config/runtime.ts`：前端运行时配置读取入口，集中读取 API 地址与异步任务轮询配置
 - `frontend/src/types/async-task.ts`：前端异步任务状态类型定义，与后端 `taskId` 轮询契约保持对应
+- `frontend/src/types/api.ts`：前端统一 API 返回类型定义
+- `frontend/src/types/auth.ts`：前端认证域的请求、响应和本地会话类型定义
+- `frontend/src/api/http.ts`：基于 `fetch` 的最小请求封装，统一处理 API 成功/失败结构
+- `frontend/src/api/auth.ts`：认证与访问范围校验接口封装
+- `frontend/src/stores/auth.ts`：前端最小认证状态管理，负责登录、退出、刷新恢复与角色判断
+- `frontend/src/utils/auth-storage.ts`：浏览器本地登录态持久化读写工具
+- `frontend/src/layouts/AppShellLayout.vue`：工作区基础布局
 
 ### frontend 当前页面
 
-- `frontend/src/pages/HomePage.vue`：默认首页，用于验证前端骨架启动成功
-- `frontend/src/pages/auth/LoginPage.vue`：登录页占位组件
-- `frontend/src/pages/auth/RegisterPage.vue`：注册页占位组件
-- `frontend/src/pages/dashboard/DashboardPage.vue`：工作台页占位组件
+- `frontend/src/pages/HomePage.vue`：公共首页，提供登录、注册、工作台和后台入口
+- `frontend/src/pages/auth/LoginPage.vue`：登录页，接入真实登录请求和登录态落盘
+- `frontend/src/pages/auth/RegisterPage.vue`：注册页，接入真实注册请求并跳转登录页
+- `frontend/src/pages/dashboard/DashboardPage.vue`：用户工作台最小验证页，会校验普通用户接口访问
+- `frontend/src/pages/admin/AdminConsolePage.vue`：管理员最小验证页，会校验管理员接口访问
 
 ### frontend 预留目录
 
@@ -296,14 +312,12 @@
 - 所有关键 AI 输出必须具备结构校验与失败兜底
 - 数据库变更统一通过迁移脚本管理
 - 鉴权错误必须统一返回结构化错误响应，便于前端直接消费
-- 在第 8 步之前，优先完成后端权限收口，不提前展开前端登录态与路由守卫复杂度
+- 先收口后端认证与权限边界，再接入前端登录态、路由守卫与页面联调
 
 ## 7. 当前待补充内容
 
 以下内容需要在开发推进过程中逐步补齐：
 
-- 登录注册前端页面与真实后端接口联调
-- 第 8 步前端登录态存储与路由守卫实现
 - 数据库表关系图
 - 接口分层说明
 - Agent 工作流调用图
@@ -311,7 +325,6 @@
 - 部署架构图
 - 异步任务状态流转设计与持久化策略
 - 文件存储抽象与路径规范细化说明
-- 前端 API 封装层与统一错误处理策略
 
 ## 8. 更新要求
 

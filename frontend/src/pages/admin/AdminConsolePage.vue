@@ -1,16 +1,16 @@
 <template>
   <section class="content-stack">
     <article class="surface-card hero-card">
-      <p class="section-kicker">Protected Route</p>
-      <h2 class="page-title">用户工作台已接入登录态</h2>
+      <p class="section-kicker">ROLE_ADMIN</p>
+      <h2 class="page-title">后台权限路由已接通</h2>
       <p class="page-copy">
-        这个页面由前端路由守卫保护，同时会调用后端普通用户接口校验 Token 是否可用，作为第八步的最小闭环验证页。
+        这个页面作为第八步最小管理端入口，用来验证“前端角色判断 + 后端管理员接口权限”已经协同工作。
       </p>
     </article>
 
     <article class="surface-card">
       <div class="card-heading">
-        <h3>当前会话信息</h3>
+        <h3>管理员访问范围校验</h3>
         <button class="ghost-button" type="button" @click="loadScope" :disabled="loading">
           {{ loading ? '刷新中...' : '重新校验' }}
         </button>
@@ -24,32 +24,18 @@
           <dd>{{ scope.scope }}</dd>
         </div>
         <div>
-          <dt>用户名</dt>
-          <dd>{{ scope.username }}</dd>
+          <dt>用户 ID</dt>
+          <dd>{{ scope.userId }}</dd>
         </div>
         <div>
-          <dt>昵称</dt>
-          <dd>{{ scope.nickname }}</dd>
+          <dt>用户名</dt>
+          <dd>{{ scope.username }}</dd>
         </div>
         <div>
           <dt>角色</dt>
           <dd>{{ scope.roleCodes.join(', ') }}</dd>
         </div>
       </dl>
-    </article>
-
-    <article class="surface-card">
-      <div class="card-heading">
-        <h3>后续页面预留</h3>
-      </div>
-      <div class="pill-row">
-        <span class="pill">简历管理</span>
-        <span class="pill">岗位目标</span>
-        <span class="pill">学习计划</span>
-        <span class="pill">每日任务</span>
-        <span class="pill">模拟面试</span>
-        <span class="pill">复盘报告</span>
-      </div>
     </article>
   </section>
 </template>
@@ -67,7 +53,7 @@ const loading = ref(false);
 
 const loadScope = async () => {
   if (!authStore.state.accessToken) {
-    errorMessage.value = '当前未检测到登录态，请重新登录。';
+    errorMessage.value = '当前未检测到登录态，请重新登录后再试。';
     return;
   }
 
@@ -75,10 +61,10 @@ const loadScope = async () => {
   errorMessage.value = '';
 
   try {
-    scope.value = await authApi.getUserAccessScope(authStore.state.accessToken);
+    scope.value = await authApi.getAdminAccessScope(authStore.state.accessToken);
   } catch (error) {
     scope.value = null;
-    errorMessage.value = extractErrorMessage(error, '普通用户访问范围校验失败。');
+    errorMessage.value = extractErrorMessage(error, '管理员访问范围校验失败。');
   } finally {
     loading.value = false;
   }
@@ -88,3 +74,4 @@ onMounted(() => {
   void loadScope();
 });
 </script>
+

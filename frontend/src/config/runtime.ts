@@ -4,7 +4,7 @@ const parseNumber = (value: string | undefined, fallback: number) => {
 };
 
 export const runtimeConfig = {
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? '/',
   taskStatusBasePath: import.meta.env.VITE_TASK_STATUS_BASE_PATH ?? '/api/tasks',
   taskStatusPollIntervalMs: parseNumber(import.meta.env.VITE_TASK_STATUS_POLL_INTERVAL_MS, 3000),
 };
