@@ -1,11 +1,21 @@
 <template>
   <main class="auth-shell">
+    <header class="auth-topbar">
+      <RouterLink class="mini-brand" to="/">
+        <span class="brand-symbol">AI</span>
+        <span class="brand-text">
+          <strong>AI 面试闯关作战室</strong>
+          <span>登录训练环境</span>
+        </span>
+      </RouterLink>
+    </header>
+
     <section class="auth-panel">
       <div class="auth-intro">
-        <p class="section-kicker">欢迎回来</p>
-        <h1 class="page-title">登录 AI 面试闯关作战室</h1>
+        <p class="section-kicker">Welcome Back</p>
+        <h1 class="page-title">继续你的面试通关进度。</h1>
         <p class="page-copy">
-          支持使用用户名或邮箱登录。登录成功后会进入受保护页面，刷新后也会自动恢复登录态。
+          支持使用用户名或邮箱登录。登录成功后会进入受保护工作台，刷新页面后也会自动恢复登录态。
         </p>
 
         <div class="tips-card">
@@ -17,9 +27,17 @@
       </div>
 
       <form class="auth-card" @submit.prevent="handleSubmit">
+        <p class="eyebrow">Secure Sign In</p>
+
         <label class="field-group">
           <span>用户名或邮箱</span>
-          <input v-model.trim="form.account" class="text-input" type="text" autocomplete="username" />
+          <input
+            v-model.trim="form.account"
+            class="text-input"
+            type="text"
+            autocomplete="username"
+            placeholder="admin 或你的邮箱"
+          />
         </label>
 
         <label class="field-group">
@@ -29,6 +47,7 @@
             class="text-input"
             type="password"
             autocomplete="current-password"
+            placeholder="输入密码"
           />
         </label>
 

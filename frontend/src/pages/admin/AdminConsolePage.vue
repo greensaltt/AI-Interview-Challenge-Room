@@ -2,9 +2,10 @@
   <section class="content-stack">
     <article class="surface-card hero-card">
       <p class="section-kicker">ROLE_ADMIN</p>
-      <h2 class="page-title">后台权限路由已接通</h2>
+      <h2 class="page-title">后台入口已经接入权限边界。</h2>
       <p class="page-copy">
-        这个页面作为第八步最小管理端入口，用来验证“前端角色判断 + 后端管理员接口权限”已经协同工作。
+        这个页面用于验证“前端角色判断 + 后端管理员接口权限”是否协同工作。
+        后续用户管理、题库维护、面试记录和 Prompt 模板都会放在这套后台框架里。
       </p>
     </article>
 
@@ -36,6 +37,21 @@
           <dd>{{ scope.roleCodes.join(', ') }}</dd>
         </div>
       </dl>
+    </article>
+
+    <article class="surface-card">
+      <div class="card-heading">
+        <h3>后台能力预留</h3>
+      </div>
+      <div class="pill-row">
+        <span class="pill">用户管理</span>
+        <span class="pill">题库维护</span>
+        <span class="pill">岗位模板</span>
+        <span class="pill">面试记录</span>
+        <span class="pill">复盘报告</span>
+        <span class="pill">Prompt 模板</span>
+        <span class="pill pill-muted">操作日志</span>
+      </div>
     </article>
   </section>
 </template>
@@ -74,4 +90,3 @@ onMounted(() => {
   void loadScope();
 });
 </script>
-

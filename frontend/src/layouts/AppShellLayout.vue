@@ -2,24 +2,54 @@
   <div class="app-shell">
     <aside class="app-sidebar">
       <RouterLink class="brand-mark" to="/">
-        <span class="brand-kicker">Offer Dungeon</span>
-        <strong>AI 面试闯关作战室</strong>
+        <span class="brand-symbol">AI</span>
+        <span class="brand-text">
+          <strong>AI 面试闯关作战室</strong>
+          <span>Offer Dungeon</span>
+        </span>
       </RouterLink>
 
       <nav class="sidebar-nav">
-        <RouterLink class="sidebar-link" to="/dashboard">工作台</RouterLink>
-        <span class="sidebar-link sidebar-link-muted">简历管理 · 第 10 步后接入</span>
-        <span class="sidebar-link sidebar-link-muted">岗位目标 · 第 13 步后接入</span>
-        <span class="sidebar-link sidebar-link-muted">学习计划 · 第 22 步后接入</span>
-        <span class="sidebar-link sidebar-link-muted">每日任务 · 第 24 步后接入</span>
-        <span class="sidebar-link sidebar-link-muted">模拟面试 · 第 27 步后接入</span>
-        <span class="sidebar-link sidebar-link-muted">复盘报告 · 第 32 步后接入</span>
+        <p class="sidebar-section-title">Workspace</p>
+        <RouterLink class="sidebar-link" to="/dashboard">
+          <span>工作台</span>
+          <small>Ready</small>
+        </RouterLink>
+        <span class="sidebar-link sidebar-link-muted">
+          <span>简历管理</span>
+          <small>Step 10</small>
+        </span>
+        <span class="sidebar-link sidebar-link-muted">
+          <span>岗位目标</span>
+          <small>Step 13</small>
+        </span>
+        <span class="sidebar-link sidebar-link-muted">
+          <span>学习计划</span>
+          <small>Step 22</small>
+        </span>
+        <span class="sidebar-link sidebar-link-muted">
+          <span>每日任务</span>
+          <small>Step 24</small>
+        </span>
+        <span class="sidebar-link sidebar-link-muted">
+          <span>模拟面试</span>
+          <small>Step 27</small>
+        </span>
+        <span class="sidebar-link sidebar-link-muted">
+          <span>复盘报告</span>
+          <small>Step 32</small>
+        </span>
+
+        <p v-if="authStore.canAccessRoles(['ROLE_ADMIN'])" class="sidebar-section-title">
+          Admin
+        </p>
         <RouterLink
           v-if="authStore.canAccessRoles(['ROLE_ADMIN'])"
           class="sidebar-link"
           to="/admin"
         >
-          后台管理
+          <span>后台管理</span>
+          <small>ROLE_ADMIN</small>
         </RouterLink>
       </nav>
     </aside>
@@ -33,7 +63,7 @@
 
         <div class="header-actions">
           <div class="user-badge">
-            <span>{{ authStore.displayName }}</span>
+            <span>{{ authStore.displayName.value }}</span>
             <small>{{ authStore.state.user?.roleCodes.join(' / ') }}</small>
           </div>
           <button class="ghost-button" type="button" @click="handleLogout">退出登录</button>
@@ -62,4 +92,3 @@ const handleLogout = async () => {
   await router.push('/login');
 };
 </script>
-

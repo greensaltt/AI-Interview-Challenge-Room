@@ -9,12 +9,13 @@
 - 第 5 步：认证与权限数据模型增强，包括用户状态、角色类型、角色绑定状态、审计字段与导师角色预留
 - 第 6 步：认证基础能力，包括注册、登录、JWT 鉴权、当前用户信息查询、退出登录
 - 第 7 步：角色权限控制，包括后台接口管理员限制、普通业务接口登录限制、统一权限失败返回
-- 第 8 步：前端登录页、注册页、登录态持久化、刷新恢复、路由守卫、管理员角色页与基础工作区布局
+- 第 8 步：前端登录页、注册页、登录态持久化、刷新恢复、路由守卫、管理员角色页、基础工作区布局与界面视觉升级
 
 当前状态：
 
 - 第 7 步已经通过自动化测试与人工验证
 - 第 8 步已经通过人工验证
+- 前端界面已完成一次视觉重构，现有认证、路由守卫和权限校验功能保持不变
 - `memory-bank/progress.md` 已同步更新到第 8 步完成状态
 - 第 9 步尚未开始
 
@@ -277,6 +278,19 @@ cd frontend
 npx.cmd vue-tsc --noEmit
 ```
 
+如果你想验证前端生产构建是否正常，可执行：
+
+```powershell
+cd frontend
+npm.cmd run build
+```
+
+说明：
+
+- Windows PowerShell 可能会因为执行策略拦截 `npm run build`
+- 使用 `npm.cmd run build` 可以绕开 `npm.ps1` 执行策略限制
+- 当前前端入口已避免使用顶层 `await`，可通过默认 Vite 构建目标打包
+
 如果你想顺手验证后端认证与权限基础链路仍正常，可执行：
 
 ```powershell
@@ -528,7 +542,9 @@ Invoke-RestMethod -Method Get `
 - `backend/src/main/java/com/offerdungeon/admin/controller/AdminAccessController.java`：管理员访问范围验证接口
 - `frontend/src/stores/auth.ts`：前端登录态存储、恢复、退出与角色判断
 - `frontend/src/router/index.ts`：前端路由守卫与角色路由控制
-- `frontend/src/layouts/AppShellLayout.vue`：第 8 步基础工作区布局
+- `frontend/src/main.ts`：前端应用入口，初始化登录态后挂载 Vue 应用
+- `frontend/src/styles/index.css`：前端全局视觉系统与响应式布局样式
+- `frontend/src/layouts/AppShellLayout.vue`：第 8 步基础工作区布局与侧边导航
 - `frontend/src/pages/auth/LoginPage.vue`：登录页
 - `frontend/src/pages/auth/RegisterPage.vue`：注册页
 - `frontend/src/pages/dashboard/DashboardPage.vue`：普通用户工作台验证页
@@ -538,5 +554,6 @@ Invoke-RestMethod -Method Get `
 ## 说明
 
 - 第 8 步已经通过人工验证
+- 第 8 步前端界面已完成视觉重构，并通过 `npm.cmd run build`
 - 第 9 步尚未开始
 - `memory-bank/progress.md` 已同步更新为第 8 步完成状态

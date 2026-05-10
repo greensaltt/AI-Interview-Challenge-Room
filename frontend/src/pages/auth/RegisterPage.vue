@@ -1,23 +1,47 @@
 <template>
   <main class="auth-shell">
+    <header class="auth-topbar">
+      <RouterLink class="mini-brand" to="/">
+        <span class="brand-symbol">AI</span>
+        <span class="brand-text">
+          <strong>AI 面试闯关作战室</strong>
+          <span>创建训练账号</span>
+        </span>
+      </RouterLink>
+    </header>
+
     <section class="auth-panel">
       <div class="auth-intro">
-        <p class="section-kicker">第一步</p>
-        <h1 class="page-title">创建你的训练账号</h1>
+        <p class="section-kicker">New Candidate</p>
+        <h1 class="page-title">先拥有一张自己的训练档案。</h1>
         <p class="page-copy">
-          注册完成后会回到登录页。第八步先不做复杂资料维护，只落地最小注册链路。
+          注册完成后会回到登录页。当前阶段只保留最小账号链路，让后续简历、岗位和面试数据都有明确归属。
         </p>
       </div>
 
       <form class="auth-card" @submit.prevent="handleSubmit">
+        <p class="eyebrow">Create Account</p>
+
         <label class="field-group">
           <span>用户名</span>
-          <input v-model.trim="form.username" class="text-input" type="text" autocomplete="username" />
+          <input
+            v-model.trim="form.username"
+            class="text-input"
+            type="text"
+            autocomplete="username"
+            placeholder="用于登录的唯一账号"
+          />
         </label>
 
         <label class="field-group">
           <span>邮箱</span>
-          <input v-model.trim="form.email" class="text-input" type="email" autocomplete="email" />
+          <input
+            v-model.trim="form.email"
+            class="text-input"
+            type="email"
+            autocomplete="email"
+            placeholder="name@example.com"
+          />
         </label>
 
         <label class="field-group">
